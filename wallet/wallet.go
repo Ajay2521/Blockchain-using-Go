@@ -78,12 +78,24 @@ func (w *Wallet) BlockchainAddress() string {
 	return w.blockchainAddress
 }
 
+func (w *Wallet) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		PrivateKey        string `json:"private_key"`
+		PublicKey         string `json:"public_key"`
+		BlockchainAddress string `json:"blockchain_address"`
+	}{
+		PrivateKey:        w.PrivateKeyStr(),
+		PublicKey:         w.PublicKeyStr(),
+		BlockchainAddress: w.BlockchainAddress(),
+	})
+}
+
 type Transaction struct {
-	senderPrivateKey           *ecdsa.PrivateKey
-	senderPublicKey            *ecdsa.PublicKey
-	senderBlockchainAddress    string
-	recipientBlockchainAddress string
-	value                      float32
+	senderPrivateKey *ecdsa.PrivateKey
+	senderPublicKey  *ecdsa.PublicKey
+	senderAddress    string
+	recipientAddress string
+	value            float32
 }
 
 func NewTransaction(privateKey *ecdsa.PrivateKey, publicKey *ecdsa.PublicKey,
@@ -107,8 +119,40 @@ func (t *Transaction) MarshalJSON() ([]byte, error) {
 		Recipient string  `json:"recipient_address"`
 		Value     float32 `json:"value"`
 	}{
-		Sender:    t.senderBlockchainAddress,
-		Recipient: t.recipientBlockchainAddress,
+		Sender:    t.senderAddress,
+		Recipient: t.recipientAddress,
 		Value:     t.value,
 	})
+}
+
+type TransactionRequest struct {
+	SenderPrivateKey *string `json:"sender_private_key"`
+	SenderAddress    *string `json:"sender_address"`
+	RecipientAddress *string `json:"recipient_address"`
+	SenderPublicKey  *string `json:"sender_public_key"`
+	Value            *string `json:"value"`
+}
+
+func (tr *TransactionRequest) Validate() string {
+	if tr.SenderPrivateKey == nil {
+		return "SenderPrivateKey is missing in the request"
+	}
+
+	if tr.SenderAddress == nil {
+		return "SenderAddress is missing in the request"
+	}
+
+	if tr.RecipientAddress == nil {
+		return "RecipientAddress is missing in the request"
+	}
+
+	if tr.SenderPublicKey == nil {
+		return "SenderPublicKey is missing in the request"
+	}
+
+	if tr.Value == nil {
+		return "Value is missing in the request"
+	}
+
+	return ""
 }
