@@ -32,7 +32,7 @@
             <div class="ui form">
                 <div class="field">
                     <label>Address</label>
-                    <input id="recipient_blockchain_address" size="100" type="text">
+                    <input id="recipient_address" size="100" type="text">
                 </div>
                 <div class="field">
                     <label>Amount</label>
@@ -41,6 +41,23 @@
                 <button id="send_money_button" class="ui button primary">Send</button>
             </div>
         </div>
+
+        <div class="ui modal" id="confirm_modal">
+            <i class="close icon"></i>
+            <div class="header">
+                Confirm Send
+            </div>
+            <div class="content">
+                <p>Are you sure to send?</p>
+            </div>
+            <div class="actions">
+                <div class="ui red basic cancel button">Cancel</div>
+                <div class="ui green ok button">Send</div>
+            </div>
+        </div>
+
+        <div id="alert_container"></div> <!-- Alert container -->
+
     </div>
 
     <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
@@ -61,18 +78,24 @@
                 }
             });
 
-            $('#send_money_button').click(function () {
-                let confirm_text = 'Are you sure to send?';
-                let confirm_result = confirm(confirm_text);
-                if (confirm_result !== true) {
-                    alert('Canceled');
-                    return
-                }
+            $('#reload_wallet').click(function () {
+                showAlert('Wallet reloaded', 'info');
+            });
 
+            $('#send_money_button').click(function () {
+                $('#confirm_modal').modal({
+                    closable: false,
+                    onApprove: function () {
+                        sendMoney();
+                    }
+                }).modal('show');
+            });
+
+            function sendMoney() {
                 let transaction_data = {
                     'sender_private_key': $('#private_key').val(),
-                    'sender_blockchain_address': $('#blockchain_address').val(),
-                    'recipient_blockchain_address': $('#recipient_blockchain_address').val(),
+                    'sender_address': $('#blockchain_address').val(),
+                    'recipient_address': $('#recipient_address').val(),
                     'sender_public_key': $('#public_key').val(),
                     'value': $('#send_amount').val(),
                 };
@@ -84,15 +107,21 @@
                     data: JSON.stringify(transaction_data),
                     success: function (response) {
                         console.info(response);
-                        alert('Send success');
+                        showAlert('Send success', 'success');
                     },
-                    error: function (response) {
-                        console.error(response);
-                        alert('Send failed');
+                    error: function (xhr, status, error) {
+                        console.error(xhr.responseText);
+                        showAlert('Send failed: ' + xhr.responseText, 'error');
                     }
-                })
-            })
-        })
+                });
+            }
+
+            function showAlert(message, type) {
+                $('#alert_container').html(`
+                    <div class="ui ${type} message">${message}</div>
+                `);
+            }
+        });
     </script>
 </body>
 </html>
