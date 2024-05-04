@@ -30,6 +30,14 @@ func NewBlockchain(blockchainAddress string) *Blockchain {
 	return bc
 }
 
+func (bc *Blockchain) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Blocks []*Block `json:"chains"`
+	}{
+		Blocks: bc.chain,
+	})
+}
+
 func (bc *Blockchain) CreateBlock(nonce int64, previousHash [32]byte) *Block {
 	b := NewBlock(nonce, previousHash, bc.transactionPool)
 	bc.chain = append(bc.chain, b)
@@ -75,7 +83,7 @@ func (bc *Blockchain) VerifyTransactionSignature(
 
 func (bc *Blockchain) ValidProof(nonce int64, previousHash [32]byte, transactions []*Transaction, difficulty int) bool {
 	zeros := strings.Repeat("0", difficulty)
-	guessBlock := Block{nonce, previousHash, transactions, 0}
+	guessBlock := Block{nonce, fmt.Sprintf("%x", previousHash), transactions, 0}
 	guessHashStr := fmt.Sprintf("%x", guessBlock.Hash())
 	return guessHashStr[:difficulty] == zeros
 }

@@ -9,7 +9,7 @@ import (
 
 type Block struct {
 	Nonce        int64          `json:"nonce"`
-	PreviousHash [32]byte       `json:"previous_hash"`
+	PreviousHash string         `json:"previous_hash"`
 	Transactions []*Transaction `json:"transactions"`
 	Timestamp    int64          `json:"timestamp"`
 }
@@ -17,7 +17,7 @@ type Block struct {
 func NewBlock(nonce int64, previousHash [32]byte, transactions []*Transaction) *Block {
 	return &Block{
 		Nonce:        nonce,
-		PreviousHash: previousHash,
+		PreviousHash: fmt.Sprintf("%x", previousHash),
 		Transactions: transactions,
 		Timestamp:    time.Now().UnixNano(),
 	}
