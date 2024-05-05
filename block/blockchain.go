@@ -1,165 +1,59 @@
 package block
 
 import (
-	"crypto/ecdsa"
-	"crypto/sha256"
-	"encoding/json"
 	"fmt"
-	"goblockchain/utils"
-	"log"
 	"strings"
-	"sync"
-	"time"
 )
 
-const (
-	MINING_DIFFICULTY = 3
-	MINING_SENDER     = "THE BLOCKCHAIN"
-	MINING_REWARD     = 1.0
-	MINING_TIMER_SEC  = 20
-)
-
-type Blockchain struct {
-	blockchainAddress string
-	transactionPool   []*Transaction
-	chain             []*Block
-	mux               sync.Mutex
+type Transaction struct {
+	SenderAddress    string  `json:"sender_address"`
+	RecipientAddress string  `json:"recipient_address"`
+	Value            float32 `json:"value"`
 }
 
-func NewBlockchain(blockchainAddress string) *Blockchain {
-	b := &Block{}
-	bc := new(Blockchain)
-	bc.blockchainAddress = blockchainAddress
-	bc.CreateBlock(0, b.Hash())
-	go bc.StartMining()
-	return bc
+func NewTransaction(sender string, recipient string, value float32) *Transaction {
+	return &Transaction{sender, recipient, value}
 }
 
-func (bc *Blockchain) TransactionPool() []*Transaction {
-	return bc.transactionPool
+func (t *Transaction) PrintTransaction() {
+	fmt.Printf("%s\n", strings.Repeat("-", 40))
+	fmt.Printf(" sender_address      %s\n", t.SenderAddress)
+	fmt.Printf(" recipient_address   %s\n", t.RecipientAddress)
+	fmt.Printf(" value               %.1f\n", t.Value)
 }
 
-func (bc *Blockchain) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
-		Blocks []*Block `json:"chains"`
-	}{
-		Blocks: bc.chain,
-	})
+type TransactionRequest struct {
+	SenderAddress    *string  `json:"sender_address"`
+	RecipientAddress *string  `json:"recipient_address"`
+	SenderPublicKey  *string  `json:"sender_public_key"`
+	Value            *float32 `json:"value"`
+	Signature        *string  `json:"signature"`
 }
 
-func (bc *Blockchain) CreateBlock(nonce int64, previousHash [32]byte) *Block {
-	b := NewBlock(nonce, previousHash, bc.transactionPool)
-	bc.chain = append(bc.chain, b)
-	bc.transactionPool = []*Transaction{}
-	return b
-}
-
-func (bc *Blockchain) LastBlock() *Block {
-	return bc.chain[len(bc.chain)-1]
-}
-
-func (bc *Blockchain) CreateTransaction(sender string, recipient string, value float32,
-	senderPublicKey *ecdsa.PublicKey, s *utils.Signature) bool {
-	isTransacted := bc.AddTransaction(sender, recipient, value, senderPublicKey, s)
-
-	// TODO
-	// Sync
-
-	return isTransacted
-}
-
-func (bc *Blockchain) AddTransaction(sender string, recipient string, value float32,
-	senderPublicKey *ecdsa.PublicKey, s *utils.Signature) bool {
-	t := NewTransaction(sender, recipient, value)
-
-	if sender == MINING_SENDER {
-		bc.transactionPool = append(bc.transactionPool, t)
-		return true
+func (tr *TransactionRequest) Validate() string {
+	if tr.Signature == nil {
+		return "Signature is missing in the request"
 	}
 
-	if bc.VerifyTransactionSignature(senderPublicKey, s, t) {
-		/*
-			if bc.CalculateTotalAmount(sender) < value {
-				log.Println("ERROR: Not enough balance in a wallet")
-				return false
-			}
-		*/
-		bc.transactionPool = append(bc.transactionPool, t)
-		return true
-	} else {
-		log.Println("ERROR: Verify Transaction")
-	}
-	return false
-
-}
-
-func (bc *Blockchain) VerifyTransactionSignature(
-	senderPublicKey *ecdsa.PublicKey, s *utils.Signature, t *Transaction) bool {
-	m, _ := json.Marshal(t)
-	h := sha256.Sum256([]byte(m))
-	return ecdsa.Verify(senderPublicKey, h[:], s.R, s.S)
-}
-
-func (bc *Blockchain) ValidProof(nonce int64, previousHash [32]byte, transactions []*Transaction, difficulty int) bool {
-	zeros := strings.Repeat("0", difficulty)
-	guessBlock := Block{nonce, fmt.Sprintf("%x", previousHash), transactions, 0}
-	guessHashStr := fmt.Sprintf("%x", guessBlock.Hash())
-	return guessHashStr[:difficulty] == zeros
-}
-
-func (bc *Blockchain) ProofOfWork() int64 {
-	transactions := bc.transactionPool
-	previousHash := bc.LastBlock().Hash()
-	nonce := int64(0)
-	for !bc.ValidProof(nonce, previousHash, transactions, MINING_DIFFICULTY) {
-		nonce += 1
-	}
-	return nonce
-}
-
-func (bc *Blockchain) Mining() bool {
-	bc.mux.Lock()
-	defer bc.mux.Unlock()
-
-	if len(bc.transactionPool) == 0 {
-		return false
+	if tr.SenderAddress == nil {
+		return "SenderAddress is missing in the request"
 	}
 
-	bc.AddTransaction(MINING_SENDER, bc.blockchainAddress, MINING_REWARD, nil, nil)
-	nonce := bc.ProofOfWork()
-	previousHash := bc.LastBlock().Hash()
-	bc.CreateBlock(nonce, previousHash)
-	log.Println("action=mining, status=success")
-	return true
-}
-
-func (bc *Blockchain) StartMining() {
-	bc.Mining()
-	_ = time.AfterFunc(time.Second*MINING_TIMER_SEC, bc.StartMining)
-}
-
-func (bc *Blockchain) CalculateTotalAmount(blockchainAddress string) float32 {
-	var totalAmount float32 = 0.0
-	for _, b := range bc.chain {
-		for _, t := range b.Transactions {
-			value := t.Value
-			if blockchainAddress == t.RecipientAddress {
-				totalAmount += value
-			}
-
-			if blockchainAddress == t.SenderAddress {
-				totalAmount -= value
-			}
-		}
+	if tr.RecipientAddress == nil {
+		return "RecipientAddress is missing in the request"
 	}
-	return totalAmount
+
+	if tr.SenderPublicKey == nil {
+		return "SenderPublicKey is missing in the request"
+	}
+
+	if tr.Value == nil {
+		return "Value is missing in the request"
+	}
+
+	return ""
 }
 
-func (bc *Blockchain) PrintBlockChain() {
-	for i, block := range bc.chain {
-		fmt.Printf("%s Chain %d %s\n", strings.Repeat("=", 25), i,
-			strings.Repeat("=", 25))
-		block.PrintBlock()
-	}
-	fmt.Printf("%s\n", strings.Repeat("*", 25))
+type AmountResponse struct {
+	Amount float32 `json:"amount"`
 }
