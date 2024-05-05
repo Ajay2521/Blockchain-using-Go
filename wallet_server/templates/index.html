@@ -4,11 +4,30 @@
     <meta charset="UTF-8">
     <title>Wallet</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.css">
+    <style>
+        #wallet_section {
+            margin-top: 20px;
+        }
+        #wallet_amount_label {
+            font-size: 14px;
+            margin-right: 5px;
+        }
+    </style>
 </head>
 <body>
 
     <div class="ui container">
-        <h1 class="ui header">Wallet</h1>
+        <div id="wallet_section">
+            <h1 class="ui header">
+                Wallet
+                <span id="wallet_details" style="float: right;">
+                    <span id="wallet_amount_label">Amount:</span>
+                    <span id="wallet_amount">0</span>
+                </span>
+            </h1>
+            <button id="reload_wallet" class="ui button primary">Reload Wallet</button>
+        </div>
+
         <div class="ui segment">
             <div class="ui form">
                 <div class="field">
@@ -23,7 +42,6 @@
                     <label>Blockchain Address</label>
                     <textarea id="blockchain_address" rows="1" cols="100"></textarea>
                 </div>
-                <button id="reload_wallet" class="ui button">Reload Wallet</button>
             </div>
         </div>
 
@@ -78,9 +96,30 @@
                 }
             });
 
+            function reloadAmount() {
+                let data = {'blockchain_address': $('#blockchain_address').val()};
+                $.ajax({
+                    url: '/wallet/amount',
+                    type: 'GET',
+                    data: data,
+                    success: function (response) {
+                        let amount = response['amount'];
+                        $('#wallet_amount').text(amount);
+                        console.info(amount);
+                    },
+                    error: function(error) {
+                        console.error(error);
+                    }
+                });
+            }
+
             $('#reload_wallet').click(function () {
+                reloadAmount();
                 showAlert('Wallet reloaded', 'info');
             });
+
+            // Reload wallet amount every 3 seconds
+            setInterval(reloadAmount, 3000);
 
             $('#send_money_button').click(function () {
                 $('#confirm_modal').modal({
